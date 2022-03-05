@@ -48,8 +48,8 @@ impl Grid {
         self.figure = Some(MatrixPoint4X::new(get_figure_matrix(type_figure)));
     }
 
-    pub fn move_down(&mut self, timer: &mut u16) -> Option<()> {
-        if *timer % 5 == 0 {
+    pub fn move_down(&mut self, timer: &mut u16, t_limit: u16) -> Option<()> {
+        if *timer % t_limit == 0 {
             *timer = 0;
             if let Some(ref mut c) = self.current_cord {
                 draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);

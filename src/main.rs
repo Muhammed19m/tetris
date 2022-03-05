@@ -45,6 +45,7 @@ fn main() -> Result<()> {
     )?;
 
     let mut timer: u16 = 0;
+    let mut timer_end: u16 = 5;
 
     loop {
         timer += 1;
@@ -94,11 +95,11 @@ fn main() -> Result<()> {
             execute!(stdout(), SetForegroundColor(Color::White))?;
             execute!(
                 stdout(),
-                Print("←, →, ↑, ↓ for movement! Esc - restart! CTRL-C to quit!")
+                Print("←→↑↓/adws/jlik for movement! Esc/q - restart! CTRL-C to quit!")
             )?;
         }
 
-        if gd.current_cord.is_none() || gd.move_down(&mut timer).is_none() {
+        if gd.current_cord.is_none() || gd.move_down(&mut timer, timer_end).is_none() {
             gd.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
             gd.ready_clean(&mut coin);
         } else {
@@ -106,7 +107,13 @@ fn main() -> Result<()> {
         }
 
         if let Ok(true) = poll(Duration::from_millis(5)) {
-            handle_event((&mut xs, &mut ys), &mut where_go, &mut gd, &mut coin);
+            handle_event(
+                (&mut xs, &mut ys),
+                &mut where_go,
+                &mut gd,
+                &mut coin,
+                &mut timer_end,
+            );
         }
     }
 }
@@ -116,6 +123,7 @@ fn handle_event(
     where_go: &mut Side,
     gd: &mut Grid,
     coin: &mut usize,
+    timer_end: &mut u16,
 ) {
     if let Ok(event) = read() {
         match event {
@@ -135,16 +143,48 @@ fn handle_event(
                 KeyCode::Up => {
                     *where_go = Side::Up;
                 }
-                KeyCode::Down => {
-                    while let Some(_) = gd.move_down(&mut 5) {}
-                    gd.move_down(&mut 5);
-                }
+                KeyCode::Down => while let Some(_) = gd.move_down(&mut 0, *timer_end) {},
                 KeyCode::Esc => {
                     gd.grid = GRID;
                     *coin = 0;
                     execute!(stdout(), cursor::MoveTo(*size_terminal.0 / 2, 2)).unwrap();
                     execute!(stdout(), Print("            ")).unwrap();
                 }
+
+                KeyCode::Char(c) => match c.to_ascii_lowercase() {
+                    'a' | 'j' => {
+                        if gd.current_cord.unwrap()[0] > 0 {
+                            gd.current_cord.unwrap()[0] -= 1;
+                            *where_go = Side::Left;
+                        }
+                    }
+                    'd' | 'l' => {
+                        if gd.current_cord.unwrap()[0] < 19 {
+                            gd.current_cord.unwrap()[0] += 1;
+                            *where_go = Side::Right;
+                        }
+                    }
+                    's' | 'k' => while let Some(_) = gd.move_down(&mut 0, *timer_end) {},
+                    'w' | 'i' => *where_go = Side::Up,
+                    '+' => {
+                        if *timer_end > 2 && *timer_end <= 30 {
+                            *timer_end -= 1;
+                        }
+                    }
+                    '-' => {
+                        if *timer_end < 30 {
+                            *timer_end += 1;
+                        }
+                    }
+                    'q' => {
+                        gd.grid = GRID;
+                        *coin = 0;
+                        execute!(stdout(), cursor::MoveTo(*size_terminal.0 / 2, 2)).unwrap();
+                        execute!(stdout(), Print("            ")).unwrap();
+                    }
+                    _ => (),
+                },
+
                 _ => (),
             },
             Event::Mouse(_) => (),
