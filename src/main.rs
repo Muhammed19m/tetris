@@ -2,6 +2,7 @@ use std::io::stdout;
 
 use rand::{thread_rng, Rng};
 
+use std::result::Result;
 use std::time::Duration;
 
 use crossterm::event::KeyCode;
@@ -12,7 +13,6 @@ use crossterm::{
     execute,
     style::{Color, Print, SetForegroundColor},
     terminal::{self, Clear, ClearType},
-    Result,
 };
 
 mod matrix;
@@ -24,7 +24,7 @@ pub use types_figures::{get_figure_matrix, get_random_figure, Figures};
 mod grid;
 use grid::{Grid, Side, GRID};
 
-fn main() -> Result<()> {
+fn main() -> crossterm::Result<()> {
     let mut gener_rand = thread_rng();
     let mut gd = Grid::new();
 
@@ -107,15 +107,21 @@ fn main() -> Result<()> {
         }
 
         if let Ok(true) = poll(Duration::from_millis(5)) {
-            handle_event(
+            terminal::enable_raw_mode().unwrap();
+            if let Err(_) = handle_event(
                 (&mut xs, &mut ys),
                 &mut where_go,
                 &mut gd,
                 &mut coin,
                 &mut timer_end,
-            );
+            ) {
+                terminal::disable_raw_mode().unwrap();
+                break;
+            }
+            terminal::disable_raw_mode().unwrap();
         }
     }
+    Ok(())
 }
 
 fn handle_event(
@@ -124,7 +130,7 @@ fn handle_event(
     gd: &mut Grid,
     coin: &mut usize,
     timer_end: &mut u16,
-) {
+) -> Result<(), ()> {
     if let Ok(event) = read() {
         match event {
             Event::Key(key) => match key.code {
@@ -182,6 +188,7 @@ fn handle_event(
                         execute!(stdout(), cursor::MoveTo(*size_terminal.0 / 2, 2)).unwrap();
                         execute!(stdout(), Print("            ")).unwrap();
                     }
+                    'c' => return Err(()),
                     _ => (),
                 },
 
@@ -197,4 +204,5 @@ fn handle_event(
             }
         }
     }
+    Ok(())
 }
