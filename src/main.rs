@@ -1,41 +1,36 @@
-use std::io::stdout;
+#![allow(unused)]
+mod grid;
+mod handler;
+mod matrix;
+mod types_figures;
 
-use rand::{thread_rng, Rng};
-
-use std::result::Result;
-use std::time::Duration;
-
-use crossterm::event::KeyCode;
-
-use crossterm::{
+pub use crossterm::{
     cursor,
-    event::{poll, read, Event},
+    event::{poll, read, Event, KeyCode},
     execute,
     style::{Color, Print, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
-
-mod matrix;
-use matrix::MatrixPoint4X;
-
-mod types_figures;
+pub use grid::{Grid, Side, GRID};
+use handler::event_handler;
+pub use matrix::MatrixPoint4X;
+use rand::{thread_rng, Rng};
+pub use std::io::stdout;
+pub use std::sync::{Arc, Mutex};
+use std::time::Duration;
+pub use std::{thread, thread::sleep};
 pub use types_figures::{get_figure_matrix, get_random_figure, Figures};
-
-mod grid;
-use grid::{Grid, Side, GRID};
 
 fn main() -> crossterm::Result<()> {
     let mut gener_rand = thread_rng();
-    let mut gd = Grid::new();
-
-    let (mut xs, mut ys) = terminal::size().unwrap();
-
+    let gd = Arc::new(Mutex::new(Grid::new()));
+    let size_terminal = Arc::new(Mutex::new(terminal::size().unwrap()));
     let mut point_start: u16;
     let ind_y = 4;
-
-    let mut coin: usize = 0;
-
-    let mut where_go: Side = Side::Stop;
+    let coin = Arc::new(Mutex::new(0));
+    let where_go = Arc::new(Mutex::new(Side::Stop));
+    let mut timer: u16 = 0;
+    let timer_end = Arc::new(Mutex::new(5));
 
     execute!(
         stdout(),
@@ -44,20 +39,51 @@ fn main() -> crossterm::Result<()> {
         Clear(ClearType::All)
     )?;
 
-    let mut timer: u16 = 0;
-    let mut timer_end: u16 = 5;
+    let mut tester = 0;
+
+    let (size_terminal_clone, where_go_clone, gd_clone, coin_clone, timer_end_clone) = (
+        size_terminal.clone(),
+        where_go.clone(),
+        gd.clone(),
+        coin.clone(),
+        timer_end.clone(),
+    );
+
+    thread::spawn(|| {
+        event_handler(
+            size_terminal_clone,
+            where_go_clone,
+            gd_clone,
+            coin_clone,
+            timer_end_clone,
+        )
+    });
 
     loop {
+        tester += 1;
         timer += 1;
         {
             execute!(stdout(), SetForegroundColor(Color::Green))?;
-            execute!(stdout(), cursor::MoveTo(xs / 2, 2))?;
-            execute!(stdout(), Print(coin))?;
+            execute!(
+                stdout(),
+                cursor::MoveTo((size_terminal.lock().unwrap()).0 / 2, 2)
+            )?;
+
+            let coin_lock = *coin.lock().unwrap();
+            if coin_lock == 0 {
+                execute!(stdout(), Print("0           "))?;
+            } else {
+                execute!(stdout(), Print(coin_lock))?;
+            }
+            drop(coin_lock);
+
             execute!(stdout(), SetForegroundColor(Color::Yellow))?;
-            point_start = xs / 2 - gd.grid[0].len() as u16 / 2;
+            point_start = (size_terminal.lock().unwrap()).0 / 2 - 10;
+
             execute!(stdout(), cursor::MoveTo(point_start, ind_y))?;
             execute!(stdout(), Print("____________________"))?;
-            for line in gd.grid.iter().enumerate() {
+
+            for line in (gd.lock().unwrap()).grid.iter().enumerate() {
                 execute!(
                     stdout(),
                     cursor::MoveTo(point_start - 1, (line.0 + 1) as u16 + ind_y)
@@ -77,11 +103,12 @@ fn main() -> crossterm::Result<()> {
                 )?;
                 execute!(stdout(), Print('|'))?;
             }
+
             execute!(stdout(), cursor::MoveTo(point_start - 1, 21 + ind_y))?;
             execute!(stdout(), Print("——————————————————————"))?;
             execute!(stdout(), cursor::MoveTo(point_start - 1, 21 + ind_y + 1))?;
             execute!(stdout(), Print("                      "))?;
-            match gd.current_cord {
+            match (gd.lock().unwrap()).current_cord {
                 Some([x, _]) => {
                     execute!(
                         stdout(),
@@ -91,118 +118,31 @@ fn main() -> crossterm::Result<()> {
                 }
                 _ => (),
             }
-            execute!(stdout(), cursor::MoveTo(point_start - 17, ys - 1))?;
+            execute!(
+                stdout(),
+                cursor::MoveTo(point_start - 17, (size_terminal.lock().unwrap()).1 - 1)
+            )?;
+
             execute!(stdout(), SetForegroundColor(Color::White))?;
             execute!(
                 stdout(),
-                Print("←→↑↓/adws/jlik for movement! Esc/q - restart! CTRL-C to quit!")
+                Print("←→↑↓/adws/jlik for movement! Esc - restart! CTRL-C to quit!")
             )?;
         }
 
-        if gd.current_cord.is_none() || gd.move_down(&mut timer, timer_end).is_none() {
-            gd.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
-            gd.ready_clean(&mut coin);
+        let mut gd_lock = gd.lock().unwrap();
+
+        if gd_lock.current_cord.is_none()
+            || gd_lock
+                .move_down(&mut timer, *timer_end.lock().unwrap())
+                .is_none()
+        {
+            gd_lock.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
+            gd_lock.ready_clean(coin.lock().unwrap());
         } else {
-            gd.move_to_side(&mut where_go);
+            gd_lock.move_to_side(where_go.lock().unwrap());
         }
-
-        if let Ok(true) = poll(Duration::from_millis(5)) {
-            terminal::enable_raw_mode().unwrap();
-            if let Err(_) = handle_event(
-                (&mut xs, &mut ys),
-                &mut where_go,
-                &mut gd,
-                &mut coin,
-                &mut timer_end,
-            ) {
-                terminal::disable_raw_mode().unwrap();
-                break;
-            }
-            terminal::disable_raw_mode().unwrap();
-        }
-    }
-    Ok(())
-}
-
-fn handle_event(
-    size_terminal: (&mut u16, &mut u16),
-    where_go: &mut Side,
-    gd: &mut Grid,
-    coin: &mut usize,
-    timer_end: &mut u16,
-) -> Result<(), ()> {
-    if let Ok(event) = read() {
-        match event {
-            Event::Key(key) => match key.code {
-                KeyCode::Left => {
-                    if gd.current_cord.unwrap()[0] > 0 {
-                        gd.current_cord.unwrap()[0] -= 1;
-                        *where_go = Side::Left;
-                    }
-                }
-                KeyCode::Right => {
-                    if gd.current_cord.unwrap()[0] < 19 {
-                        gd.current_cord.unwrap()[0] += 1;
-                        *where_go = Side::Right;
-                    }
-                }
-                KeyCode::Up => {
-                    *where_go = Side::Up;
-                }
-                KeyCode::Down => while let Some(_) = gd.move_down(&mut 0, *timer_end) {},
-                KeyCode::Esc => {
-                    gd.grid = GRID;
-                    *coin = 0;
-                    execute!(stdout(), cursor::MoveTo(*size_terminal.0 / 2, 2)).unwrap();
-                    execute!(stdout(), Print("            ")).unwrap();
-                }
-
-                KeyCode::Char(c) => match c.to_ascii_lowercase() {
-                    'a' | 'j' => {
-                        if gd.current_cord.unwrap()[0] > 0 {
-                            gd.current_cord.unwrap()[0] -= 1;
-                            *where_go = Side::Left;
-                        }
-                    }
-                    'd' | 'l' => {
-                        if gd.current_cord.unwrap()[0] < 19 {
-                            gd.current_cord.unwrap()[0] += 1;
-                            *where_go = Side::Right;
-                        }
-                    }
-                    's' | 'k' => while let Some(_) = gd.move_down(&mut 0, *timer_end) {},
-                    'w' | 'i' => *where_go = Side::Up,
-                    '+' => {
-                        if *timer_end > 2 && *timer_end <= 30 {
-                            *timer_end -= 1;
-                        }
-                    }
-                    '-' => {
-                        if *timer_end < 30 {
-                            *timer_end += 1;
-                        }
-                    }
-                    'q' => {
-                        gd.grid = GRID;
-                        *coin = 0;
-                        execute!(stdout(), cursor::MoveTo(*size_terminal.0 / 2, 2)).unwrap();
-                        execute!(stdout(), Print("            ")).unwrap();
-                    }
-                    'c' => return Err(()),
-                    _ => (),
-                },
-
-                _ => (),
-            },
-            Event::Mouse(_) => (),
-            Event::Resize(x, y) => {
-                if *size_terminal.0 == x || *size_terminal.1 == y {
-                    execute!(stdout(), cursor::Hide, Clear(ClearType::All)).unwrap();
-                }
-                *size_terminal.0 = x;
-                *size_terminal.1 = y;
-            }
-        }
+        drop(gd_lock);
     }
     Ok(())
 }

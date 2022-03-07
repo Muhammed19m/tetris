@@ -22,6 +22,7 @@ pub const GRID: [[u8; 20]; 20] = [
 ];
 
 use crate::{get_figure_matrix, Figures, MatrixPoint4X};
+use std::sync::MutexGuard;
 pub enum Side {
     Left,
     Right,
@@ -81,9 +82,9 @@ impl Grid {
         Some(())
     }
 
-    pub fn move_to_side(&mut self, l_r: &mut Side) {
+    pub fn move_to_side(&mut self, mut l_r: MutexGuard<Side>) {
         if let Some(ref mut c) = self.current_cord {
-            match l_r {
+            match *l_r {
                 Side::Left => {
                     draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);
 
@@ -149,7 +150,7 @@ impl Grid {
         }
     }
 
-    pub fn ready_clean(&mut self, coin: &mut usize) {
+    pub fn ready_clean(&mut self, mut coin: MutexGuard<usize>) {
         for line in self.grid.clone().into_iter().enumerate() {
             if line.1.into_iter().all(|i| i == 1) {
                 for i in (0..=line.0).rev() {
