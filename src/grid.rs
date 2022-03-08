@@ -21,7 +21,7 @@ pub const GRID: [[u8; 20]; 20] = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-use crate::{get_figure_matrix, Figures, MatrixPoint4X};
+use crate::{get_figure_matrix, sleep, thread, Duration, Figures, MatrixPoint4X, SPEED};
 use std::sync::MutexGuard;
 pub enum Side {
     Left,
@@ -50,7 +50,7 @@ impl Grid {
     }
 
     pub fn move_down(&mut self, timer: &mut u16, t_limit: u16) -> Option<()> {
-        if *timer % t_limit == 0 {
+        if *timer % SPEED == 0 {
             *timer = 0;
             if let Some(ref mut c) = self.current_cord {
                 draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);
@@ -196,4 +196,8 @@ fn is_side(grid: [[u8; 20]; 20], figure: &MatrixPoint4X, c: [u8; 2], side: i8) -
         }
     }
     true
+}
+
+fn thrd_move() {
+    sleep(Duration::from_millis(300));
 }

@@ -1,4 +1,6 @@
-#![allow(unused)]
+const SPEED: u16 = 200;
+// пока при компиляции надо менять, чем меньше число тем быстрее падает фигурка
+
 mod grid;
 mod handler;
 mod matrix;
@@ -31,15 +33,13 @@ fn main() -> crossterm::Result<()> {
     let where_go = Arc::new(Mutex::new(Side::Stop));
     let mut timer: u16 = 0;
     let timer_end = Arc::new(Mutex::new(5));
-
+    let exi = Arc::new(Mutex::new(false));
     execute!(
         stdout(),
         terminal::EnterAlternateScreen,
         cursor::Hide,
         Clear(ClearType::All)
     )?;
-
-    let mut tester = 0;
 
     let (size_terminal_clone, where_go_clone, gd_clone, coin_clone, timer_end_clone) = (
         size_terminal.clone(),
@@ -48,6 +48,7 @@ fn main() -> crossterm::Result<()> {
         coin.clone(),
         timer_end.clone(),
     );
+    let exi_clone = exi.clone();
 
     thread::spawn(|| {
         event_handler(
@@ -56,11 +57,25 @@ fn main() -> crossterm::Result<()> {
             gd_clone,
             coin_clone,
             timer_end_clone,
+            exi_clone,
         )
     });
+    let lock_s = size_terminal.lock().unwrap();
+    execute!(
+        stdout(),
+        cursor::MoveTo(lock_s.0 / 2 - 10 - 20, lock_s.1 - 1)
+    )
+    .unwrap();
+
+    execute!(stdout(), SetForegroundColor(Color::White)).unwrap();
+    execute!(
+        stdout(),
+        Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
+    )
+    .unwrap();
+    drop(lock_s);
 
     loop {
-        tester += 1;
         timer += 1;
         {
             execute!(stdout(), SetForegroundColor(Color::Green))?;
@@ -118,16 +133,6 @@ fn main() -> crossterm::Result<()> {
                 }
                 _ => (),
             }
-            execute!(
-                stdout(),
-                cursor::MoveTo(point_start - 17, (size_terminal.lock().unwrap()).1 - 1)
-            )?;
-
-            execute!(stdout(), SetForegroundColor(Color::White))?;
-            execute!(
-                stdout(),
-                Print("←→↑↓/adws/jlik for movement! Esc - restart! CTRL-C to quit!")
-            )?;
         }
 
         let mut gd_lock = gd.lock().unwrap();
@@ -143,6 +148,10 @@ fn main() -> crossterm::Result<()> {
             gd_lock.move_to_side(where_go.lock().unwrap());
         }
         drop(gd_lock);
+
+        if *exi.lock().unwrap() {
+            break;
+        }
     }
     Ok(())
 }
