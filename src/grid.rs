@@ -21,8 +21,9 @@ pub const GRID: [[u8; 20]; 20] = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-use crate::{get_figure_matrix, sleep, thread, Duration, Figures, MatrixPoint4X, SPEED};
-use std::sync::MutexGuard;
+use crate::{get_figure_matrix, Figures, MatrixPoint4X, SPEED};
+
+#[derive(PartialEq)]
 pub enum Side {
     Left,
     Right,
@@ -49,7 +50,7 @@ impl Grid {
         self.figure = Some(MatrixPoint4X::new(get_figure_matrix(type_figure)));
     }
 
-    pub fn move_down(&mut self, timer: &mut u16, t_limit: u16) -> Option<()> {
+    pub fn move_down(&mut self, timer: &mut u16) -> Option<()> {
         if *timer % SPEED == 0 {
             *timer = 0;
             if let Some(ref mut c) = self.current_cord {
@@ -82,7 +83,7 @@ impl Grid {
         Some(())
     }
 
-    pub fn move_to_side(&mut self, mut l_r: MutexGuard<Side>) {
+    pub fn move_to_side(&mut self, l_r: &mut Side) {
         if let Some(ref mut c) = self.current_cord {
             match *l_r {
                 Side::Left => {
@@ -150,7 +151,7 @@ impl Grid {
         }
     }
 
-    pub fn ready_clean(&mut self, mut coin: MutexGuard<usize>) {
+    pub fn ready_clean(&mut self, coin: &mut usize) {
         for line in self.grid.clone().into_iter().enumerate() {
             if line.1.into_iter().all(|i| i == 1) {
                 for i in (0..=line.0).rev() {
@@ -196,8 +197,4 @@ fn is_side(grid: [[u8; 20]; 20], figure: &MatrixPoint4X, c: [u8; 2], side: i8) -
         }
     }
     true
-}
-
-fn thrd_move() {
-    sleep(Duration::from_millis(300));
 }

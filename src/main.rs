@@ -14,26 +14,25 @@ pub use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 pub use grid::{Grid, Side, GRID};
-use handler::event_handler;
+use handler::event_handler_poll;
 pub use matrix::MatrixPoint4X;
 use rand::{thread_rng, Rng};
 pub use std::io::stdout;
 pub use std::sync::{Arc, Mutex};
-use std::time::Duration;
+pub use std::time::Duration;
 pub use std::{thread, thread::sleep};
 pub use types_figures::{get_figure_matrix, get_random_figure, Figures};
 
 fn main() -> crossterm::Result<()> {
     let mut gener_rand = thread_rng();
     let gd = Arc::new(Mutex::new(Grid::new()));
-    let size_terminal = Arc::new(Mutex::new(terminal::size().unwrap()));
+    let mut size_terminal = terminal::size().unwrap();
     let mut point_start: u16;
     let ind_y = 4;
-    let coin = Arc::new(Mutex::new(0));
-    let where_go = Arc::new(Mutex::new(Side::Stop));
+    let mut coin = 0;
+    let mut where_go = Side::Stop;
     let mut timer: u16 = 0;
-    let timer_end = Arc::new(Mutex::new(5));
-    let exi = Arc::new(Mutex::new(false));
+    let mut exi = false;
     execute!(
         stdout(),
         terminal::EnterAlternateScreen,
@@ -41,29 +40,9 @@ fn main() -> crossterm::Result<()> {
         Clear(ClearType::All)
     )?;
 
-    let (size_terminal_clone, where_go_clone, gd_clone, coin_clone, timer_end_clone) = (
-        size_terminal.clone(),
-        where_go.clone(),
-        gd.clone(),
-        coin.clone(),
-        timer_end.clone(),
-    );
-    let exi_clone = exi.clone();
-
-    thread::spawn(|| {
-        event_handler(
-            size_terminal_clone,
-            where_go_clone,
-            gd_clone,
-            coin_clone,
-            timer_end_clone,
-            exi_clone,
-        )
-    });
-    let lock_s = size_terminal.lock().unwrap();
     execute!(
         stdout(),
-        cursor::MoveTo(lock_s.0 / 2 - 10 - 20, lock_s.1 - 1)
+        cursor::MoveTo(size_terminal.0 / 2 - 10 - 20, size_terminal.1)
     )
     .unwrap();
 
@@ -73,27 +52,22 @@ fn main() -> crossterm::Result<()> {
         Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
     )
     .unwrap();
-    drop(lock_s);
 
     loop {
+        size_terminal = terminal::size().unwrap();
         timer += 1;
         {
             execute!(stdout(), SetForegroundColor(Color::Green))?;
-            execute!(
-                stdout(),
-                cursor::MoveTo((size_terminal.lock().unwrap()).0 / 2, 2)
-            )?;
+            execute!(stdout(), cursor::MoveTo(size_terminal.0 / 2, 2))?;
 
-            let coin_lock = *coin.lock().unwrap();
-            if coin_lock == 0 {
+            if coin == 0 {
                 execute!(stdout(), Print("0           "))?;
             } else {
-                execute!(stdout(), Print(coin_lock))?;
+                execute!(stdout(), Print(coin))?;
             }
-            drop(coin_lock);
 
             execute!(stdout(), SetForegroundColor(Color::Yellow))?;
-            point_start = (size_terminal.lock().unwrap()).0 / 2 - 10;
+            point_start = size_terminal.0 / 2 - 10;
 
             execute!(stdout(), cursor::MoveTo(point_start, ind_y))?;
             execute!(stdout(), Print("____________________"))?;
@@ -133,23 +107,30 @@ fn main() -> crossterm::Result<()> {
                 }
                 _ => (),
             }
+            if size_terminal.0 < 70 {
+                break;
+            }
+            execute!(
+                stdout(),
+                cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1),
+                SetForegroundColor(Color::White),
+                Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
+            )
+            .unwrap();
         }
-
-        let mut gd_lock = gd.lock().unwrap();
-
-        if gd_lock.current_cord.is_none()
-            || gd_lock
-                .move_down(&mut timer, *timer_end.lock().unwrap())
-                .is_none()
-        {
-            gd_lock.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
-            gd_lock.ready_clean(coin.lock().unwrap());
+        let mut lock_gd = gd.lock().unwrap();
+        if lock_gd.current_cord.is_none() || lock_gd.move_down(&mut timer).is_none() {
+            lock_gd.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
+            lock_gd.ready_clean(&mut coin);
         } else {
-            gd_lock.move_to_side(where_go.lock().unwrap());
+            lock_gd.move_to_side(&mut where_go);
         }
-        drop(gd_lock);
 
-        if *exi.lock().unwrap() {
+        if poll(Duration::from_millis(10)).unwrap() {
+            event_handler_poll(&mut where_go, &mut lock_gd, &mut coin, &mut exi)
+        }
+
+        if exi {
             break;
         }
     }
