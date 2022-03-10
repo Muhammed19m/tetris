@@ -5,10 +5,7 @@ use crate::{
 };
 
 pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, exi: &mut bool) {
-    terminal::enable_raw_mode().unwrap();
-
     if let Ok(event) = read() {
-        terminal::disable_raw_mode().unwrap();
         if gd.figure.is_some() {
             match event {
                 Event::Key(key) => match key.code {
@@ -55,6 +52,7 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
 
                         'p' | 'P' => {
                             let mut resize = false;
+
                             loop {
                                 let k = read().unwrap();
                                 if let Event::Key(key) = k {
@@ -63,8 +61,8 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
                                     }
                                     if let KeyCode::Char('C' | 'c') = key.code {
                                         if key.modifiers == KeyModifiers::CONTROL {
-                                            terminal::disable_raw_mode().unwrap();
                                             *exi = true;
+                                            terminal::disable_raw_mode().unwrap();
                                             return;
                                         }
                                     }
@@ -89,5 +87,4 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
             }
         }
     }
-    terminal::enable_raw_mode().unwrap();
 }

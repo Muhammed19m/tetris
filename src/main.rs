@@ -1,4 +1,4 @@
-const SPEED: u16 = 200;
+const SPEED: u16 = 5;
 // пока при компиляции надо менять, чем меньше число тем быстрее падает фигурка
 
 mod grid;
@@ -124,12 +124,14 @@ fn main() -> crossterm::Result<()> {
         } else {
             lock_gd.move_to_side(&mut where_go);
         }
-
+        terminal::enable_raw_mode().unwrap();
         if poll(Duration::from_millis(10)).unwrap() {
             event_handler_poll(&mut where_go, &mut lock_gd, &mut coin, &mut exi)
         }
+        terminal::disable_raw_mode().unwrap();
 
-        if exi && size_terminal.0 < 22 {
+        if exi || size_terminal.0 < 23 {
+            execute!(stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
             break;
         }
     }
