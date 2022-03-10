@@ -107,16 +107,15 @@ fn main() -> crossterm::Result<()> {
                 }
                 _ => (),
             }
-            if size_terminal.0 < 70 {
-                break;
+            if size_terminal.0 >= 70 {
+                execute!(
+                    stdout(),
+                    cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1),
+                    SetForegroundColor(Color::White),
+                    Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
+                )
+                .unwrap();
             }
-            execute!(
-                stdout(),
-                cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1),
-                SetForegroundColor(Color::White),
-                Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
-            )
-            .unwrap();
         }
         let mut lock_gd = gd.lock().unwrap();
         if lock_gd.current_cord.is_none() || lock_gd.move_down(&mut timer).is_none() {
@@ -130,7 +129,7 @@ fn main() -> crossterm::Result<()> {
             event_handler_poll(&mut where_go, &mut lock_gd, &mut coin, &mut exi)
         }
 
-        if exi {
+        if exi && size_terminal.0 < 22 {
             break;
         }
     }
