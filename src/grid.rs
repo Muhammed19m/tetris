@@ -21,7 +21,7 @@ pub const GRID: [[u8; 20]; 20] = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-use crate::{get_figure_matrix, Figures, MatrixPoint4X, SPEED};
+use crate::{get_figure_matrix, sleep, thread, Arc, Duration, Figures, MatrixPoint4X, Mutex};
 
 #[derive(PartialEq)]
 pub enum Side {
@@ -50,37 +50,31 @@ impl Grid {
         self.figure = Some(MatrixPoint4X::new(get_figure_matrix(type_figure)));
     }
 
-    pub fn move_down(&mut self, timer: &mut u16) -> Option<()> {
-        if *timer % SPEED == 0 {
-            *timer = 0;
-            if let Some(ref mut c) = self.current_cord {
-                draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);
-                for line in self.figure.unwrap().arr.into_iter().enumerate() {
-                    for item in line.1.into_iter().enumerate() {
-                        if item.1 == 1 {
-                            if c[1] + (line.0 as u8) + 1 < 20 {
-                                if self.grid[c[1] as usize + 1 + line.0][c[0] as usize + item.0]
-                                    != 0
-                                {
-                                    draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
-                                    return None;
-                                }
-                            } else {
+    pub fn move_down(&mut self) -> Option<()> {
+        if let Some(ref mut c) = self.current_cord {
+            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);
+            for line in self.figure.unwrap().arr.into_iter().enumerate() {
+                for item in line.1.into_iter().enumerate() {
+                    if item.1 == 1 {
+                        if c[1] + (line.0 as u8) + 1 < 20 {
+                            if self.grid[c[1] as usize + 1 + line.0][c[0] as usize + item.0] != 0 {
                                 draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
                                 return None;
                             }
+                        } else {
+                            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
+                            return None;
                         }
                     }
                 }
-
-                c[1] += 1;
-
-                draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
-                return Some(());
             }
-            return None;
+
+            c[1] += 1;
+
+            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
+            return Some(());
         }
-        Some(())
+        return None;
     }
 
     pub fn move_to_side(&mut self, l_r: &mut Side) {
@@ -164,6 +158,15 @@ impl Grid {
                 *coin += 1;
             }
         }
+    }
+    pub fn move_down_sleep(
+        gd: Arc<Mutex<Grid>>,
+        info: Arc<Mutex<Option<()>>>,
+    ) -> thread::JoinHandle<()> {
+        thread::spawn(move || loop {
+            sleep(Duration::from_millis(300));
+            *(info.lock().unwrap()) = (gd.lock().unwrap()).move_down();
+        })
     }
 }
 

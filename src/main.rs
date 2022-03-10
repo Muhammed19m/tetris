@@ -1,6 +1,3 @@
-const SPEED: u16 = 5;
-// пока при компиляции надо менять, чем меньше число тем быстрее падает фигурка
-
 mod grid;
 mod handler;
 mod matrix;
@@ -31,7 +28,6 @@ fn main() -> crossterm::Result<()> {
     let ind_y = 4;
     let mut coin = 0;
     let mut where_go = Side::Stop;
-    let mut timer: u16 = 0;
     let mut exi = false;
     execute!(
         stdout(),
@@ -42,7 +38,7 @@ fn main() -> crossterm::Result<()> {
 
     execute!(
         stdout(),
-        cursor::MoveTo(size_terminal.0 / 2 - 10 - 20, size_terminal.1)
+        cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1)
     )
     .unwrap();
 
@@ -52,10 +48,15 @@ fn main() -> crossterm::Result<()> {
         Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
     )
     .unwrap();
+    terminal::enable_raw_mode().unwrap();
+
+    let info = Arc::new(Mutex::new(None));
+
+    let _thread_move_down = Grid::move_down_sleep(gd.clone(), info.clone());
 
     loop {
         size_terminal = terminal::size().unwrap();
-        timer += 1;
+
         {
             execute!(stdout(), SetForegroundColor(Color::Green))?;
             execute!(stdout(), cursor::MoveTo(size_terminal.0 / 2, 2))?;
@@ -118,7 +119,7 @@ fn main() -> crossterm::Result<()> {
             }
         }
         let mut lock_gd = gd.lock().unwrap();
-        if lock_gd.current_cord.is_none() || lock_gd.move_down(&mut timer).is_none() {
+        if lock_gd.current_cord.is_none() || (info.lock().unwrap()).is_none() {
             lock_gd.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
             lock_gd.ready_clean(&mut coin);
         } else {
@@ -128,10 +129,10 @@ fn main() -> crossterm::Result<()> {
         if poll(Duration::from_millis(10)).unwrap() {
             event_handler_poll(&mut where_go, &mut lock_gd, &mut coin, &mut exi)
         }
-        terminal::disable_raw_mode().unwrap();
 
         if exi || size_terminal.0 < 23 {
             execute!(stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
+            terminal::disable_raw_mode().unwrap();
             break;
         }
     }

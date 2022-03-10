@@ -24,7 +24,7 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
                     KeyCode::Up => {
                         *where_go = Side::Up;
                     }
-                    KeyCode::Down => while let Some(_) = gd.move_down(&mut 0) {},
+                    KeyCode::Down => while let Some(_) = gd.move_down() {},
                     KeyCode::Esc => {
                         gd.grid = GRID;
                         *coin = 0;
@@ -47,7 +47,7 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
                                 *where_go = Side::Right;
                             }
                         }
-                        's' | 'k' => while let Some(_) = gd.move_down(&mut 0) {},
+                        's' | 'k' => while let Some(_) = gd.move_down() {},
                         'w' | 'i' => *where_go = Side::Up,
 
                         'p' | 'P' => {
