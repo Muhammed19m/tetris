@@ -24,7 +24,7 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
                     KeyCode::Up => {
                         *where_go = Side::Up;
                     }
-                    KeyCode::Down => while let Some(_) = gd.move_down() {},
+                    KeyCode::Down => while let Some(_) = gd.move_down(1, 1) {},
                     KeyCode::Esc => {
                         gd.grid = GRID;
                         *coin = 0;
@@ -34,49 +34,53 @@ pub fn event_handler_poll(where_go: &mut Side, gd: &mut Grid, coin: &mut usize, 
                         *exi = true;
                         return;
                     }
-                    KeyCode::Char(c) => match c.to_ascii_lowercase() {
-                        'a' | 'j' => {
-                            if gd.current_cord.unwrap()[0] > 0 {
-                                gd.current_cord.unwrap()[0] -= 1;
-                                *where_go = Side::Left;
-                            }
-                        }
-                        'd' | 'l' => {
-                            if gd.current_cord.unwrap()[0] < 19 {
-                                gd.current_cord.unwrap()[0] += 1;
-                                *where_go = Side::Right;
-                            }
-                        }
-                        's' | 'k' => while let Some(_) = gd.move_down() {},
-                        'w' | 'i' => *where_go = Side::Up,
-
-                        'p' | 'P' => {
-                            let mut resize = false;
-
-                            loop {
-                                let k = read().unwrap();
-                                if let Event::Key(key) = k {
-                                    if let KeyCode::Char('p' | 'P') = key.code {
-                                        break;
-                                    }
-                                    if let KeyCode::Char('C' | 'c') = key.code {
-                                        if key.modifiers == KeyModifiers::CONTROL {
-                                            *exi = true;
-                                            terminal::disable_raw_mode().unwrap();
-                                            return;
-                                        }
-                                    }
-                                } else if let Event::Resize(..) = k {
-                                    resize = true;
+                    KeyCode::Char(c) => {
+                        // crate::logger(&gd.grid); //                 LOGGER
+                        match c.to_ascii_lowercase() {
+                            'a' | 'j' => {
+                                if gd.current_cord.unwrap()[0] > 0 {
+                                    gd.current_cord.unwrap()[0] -= 1;
+                                    *where_go = Side::Left;
                                 }
                             }
-                            if resize {
-                                execute!(stdout(), cursor::Hide, Clear(ClearType::All)).unwrap();
+                            'd' | 'l' => {
+                                if gd.current_cord.unwrap()[0] < 19 {
+                                    gd.current_cord.unwrap()[0] += 1;
+                                    *where_go = Side::Right;
+                                }
                             }
-                        }
+                            's' | 'k' => while let Some(_) = gd.move_down(1, 1) {},
+                            'w' | 'i' => *where_go = Side::Up,
 
-                        _ => (),
-                    },
+                            'p' | 'P' => {
+                                let mut resize = false;
+
+                                loop {
+                                    let k = read().unwrap();
+                                    if let Event::Key(key) = k {
+                                        if let KeyCode::Char('p' | 'P') = key.code {
+                                            break;
+                                        }
+                                        if let KeyCode::Char('C' | 'c') = key.code {
+                                            if key.modifiers == KeyModifiers::CONTROL {
+                                                *exi = true;
+                                                terminal::disable_raw_mode().unwrap();
+                                                return;
+                                            }
+                                        }
+                                    } else if let Event::Resize(..) = k {
+                                        resize = true;
+                                    }
+                                }
+                                if resize {
+                                    execute!(stdout(), cursor::Hide, Clear(ClearType::All))
+                                        .unwrap();
+                                }
+                            }
+
+                            _ => (),
+                        }
+                    }
 
                     _ => (),
                 },

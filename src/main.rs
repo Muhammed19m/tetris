@@ -29,6 +29,7 @@ fn main() -> crossterm::Result<()> {
     let mut coin = 0;
     let mut where_go = Side::Stop;
     let mut exi = false;
+
     execute!(
         stdout(),
         terminal::EnterAlternateScreen,
@@ -80,7 +81,11 @@ fn main() -> crossterm::Result<()> {
                 )?;
                 execute!(stdout(), Print('|'))?;
                 for item in line.1 {
+                    execute!(stdout(), SetForegroundColor(Color::Yellow))?;
                     if *item == 1 {
+                        execute!(stdout(), Print("O"))?;
+                    } else if *item == 2 {
+                        execute!(stdout(), SetForegroundColor(Color::Grey))?;
                         execute!(stdout(), Print("O"))?;
                     } else {
                         execute!(stdout(), Print(" "))?;
@@ -126,7 +131,7 @@ fn main() -> crossterm::Result<()> {
             lock_gd.move_to_side(&mut where_go);
         }
         terminal::enable_raw_mode().unwrap();
-        if poll(Duration::from_millis(10)).unwrap() {
+        if poll(Duration::from_millis(1)).unwrap() {
             event_handler_poll(&mut where_go, &mut lock_gd, &mut coin, &mut exi)
         }
 

@@ -50,19 +50,21 @@ impl Grid {
         self.figure = Some(MatrixPoint4X::new(get_figure_matrix(type_figure)));
     }
 
-    pub fn move_down(&mut self) -> Option<()> {
+    pub fn move_down(&mut self, value: u8, current_value: u8) -> Option<()> {
         if let Some(ref mut c) = self.current_cord {
             draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);
             for line in self.figure.unwrap().arr.into_iter().enumerate() {
                 for item in line.1.into_iter().enumerate() {
                     if item.1 == 1 {
                         if c[1] + (line.0 as u8) + 1 < 20 {
-                            if self.grid[c[1] as usize + 1 + line.0][c[0] as usize + item.0] != 0 {
-                                draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
+                            if self.grid[c[1] as usize + 1 + line.0][c[0] as usize + item.0]
+                                == current_value
+                            {
+                                draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, value);
                                 return None;
                             }
                         } else {
-                            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
+                            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, value);
                             return None;
                         }
                     }
@@ -71,13 +73,21 @@ impl Grid {
 
             c[1] += 1;
 
-            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
+            draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, value);
             return Some(());
         }
         return None;
     }
 
     pub fn move_to_side(&mut self, l_r: &mut Side) {
+        let backup_cord = self.current_cord.clone();
+        self.grid
+            .iter_mut()
+            .map(|line| line.iter_mut().filter(|i| **i == 2).map(|i| *i = 0).count())
+            .count();
+        while let Some(_) = self.move_down(2, 1) {}
+        self.current_cord = backup_cord;
+
         if let Some(ref mut c) = self.current_cord {
             match *l_r {
                 Side::Left => {
@@ -85,23 +95,17 @@ impl Grid {
 
                     if is_side(self.grid, &self.figure.unwrap(), *c, -1) {
                         c[0] -= 1;
-                        draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
-                    } else {
-                        draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
                     }
-
+                    draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
                     *l_r = Side::Stop;
                 }
 
                 Side::Right => {
                     draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 0);
-
                     if is_side(self.grid, &self.figure.unwrap(), *c, 1) {
                         c[0] += 1;
-                        draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
-                    } else {
-                        draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
                     }
+                    draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1);
 
                     *l_r = Side::Stop;
                 }
@@ -140,7 +144,7 @@ impl Grid {
                     };
                     *l_r = Side::Stop;
                 }
-                _ => (),
+                _ => draw_points(&mut self.grid, &self.figure.unwrap().arr, *c, 1),
             }
         }
     }
@@ -165,16 +169,16 @@ impl Grid {
     ) -> thread::JoinHandle<()> {
         thread::spawn(move || loop {
             sleep(Duration::from_millis(300));
-            *(info.lock().unwrap()) = (gd.lock().unwrap()).move_down();
+            *(info.lock().unwrap()) = (gd.lock().unwrap()).move_down(1, 1);
         })
     }
 }
 
-fn draw_points(arr: &mut [[u8; 20]; 20], points: &[[u8; 4]; 4], cord: [u8; 2], value: u8) {
+fn draw_points(grid: &mut [[u8; 20]; 20], points: &[[u8; 4]; 4], cord: [u8; 2], value: u8) {
     for line in points.iter().enumerate() {
         for item in line.1.iter().enumerate() {
             if *item.1 == 1 && cord[1] > 0 {
-                arr[cord[1] as usize + line.0][cord[0] as usize + item.0] = value;
+                grid[cord[1] as usize + line.0][cord[0] as usize + item.0] = value;
             }
         }
     }
@@ -186,7 +190,7 @@ fn is_side(grid: [[u8; 20]; 20], figure: &MatrixPoint4X, c: [u8; 2], side: i8) -
             if *item.1 == 1 {
                 if (c[0] + item.0 as u8) <= 19 {
                     if !(c[0] + item.0 as u8 == 19 && side == 1) {
-                        if grid[c[1] as usize + line.0][item.0 + (c[0] as i8 + side) as usize] != 0
+                        if grid[c[1] as usize + line.0][item.0 + (c[0] as i8 + side) as usize] == 1
                         {
                             return false;
                         }
