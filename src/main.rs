@@ -10,8 +10,8 @@ pub use crossterm::{
     style::{Color, Print, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
+use grid::State;
 pub use grid::{Grid, Side, GRID};
-use handler::event_handler_poll;
 pub use matrix::MatrixPoint4X;
 use rand::{thread_rng, Rng};
 pub use std::io::stdout;
@@ -24,12 +24,58 @@ fn main() -> crossterm::Result<()> {
     let mut gener_rand = thread_rng();
     let gd = Arc::new(Mutex::new(Grid::new()));
     let mut size_terminal = terminal::size().unwrap();
-    let mut point_start: u16;
-    let ind_y = 4;
-    let mut coin = 0;
-    let mut where_go = Side::Stop;
-    let mut exi = false;
+    let info = Arc::new(Mutex::new(None));
+    let _thread_move_down = Grid::move_down_sleep(gd.clone(), info.clone());
+    let mut state = State::new(size_terminal, info, 0);
+    let mut other_gd = Grid::new();
+    let mut other_state = State::new((100, 4), Arc::new(Mutex::new(None)), 0);
 
+    init(size_terminal)?;
+
+    let game = loop {
+        break Game::Offline;
+    };
+    
+    if let Game::Online = game {
+        state.set_mixer(-20)
+    }
+
+    loop {
+        size_terminal = terminal::size().unwrap();
+
+        match game {
+            Game::Offline => {
+                state.size_terminal = size_terminal;
+                Grid::run_offline(&gd, &mut state, gener_rand.gen::<u8>())?;
+            }
+            Game::Online => {}
+        }
+
+        if size_terminal.0 >= 70 {
+            execute!(
+                stdout(),
+                cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1),
+                SetForegroundColor(Color::White),
+                Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
+            )
+            .unwrap();
+        }
+
+        if state.is_exi() || size_terminal.0 < 23 {
+            execute!(stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
+            terminal::disable_raw_mode().unwrap();
+            break;
+        }
+    }
+    Ok(())
+}
+
+enum Game {
+    Offline,
+    Online,
+}
+
+fn init(size_terminal: (u16, u16)) -> crossterm::Result<()> {
     execute!(
         stdout(),
         terminal::EnterAlternateScreen,
@@ -50,96 +96,5 @@ fn main() -> crossterm::Result<()> {
     )
     .unwrap();
     terminal::enable_raw_mode().unwrap();
-
-    let info = Arc::new(Mutex::new(None));
-
-    let _thread_move_down = Grid::move_down_sleep(gd.clone(), info.clone());
-
-    loop {
-        size_terminal = terminal::size().unwrap();
-
-        {
-            execute!(stdout(), SetForegroundColor(Color::Green))?;
-            execute!(stdout(), cursor::MoveTo(size_terminal.0 / 2, 2))?;
-
-            if coin == 0 {
-                execute!(stdout(), Print("0           "))?;
-            } else {
-                execute!(stdout(), Print(coin))?;
-            }
-
-            execute!(stdout(), SetForegroundColor(Color::Yellow))?;
-            point_start = size_terminal.0 / 2 - 10;
-
-            execute!(stdout(), cursor::MoveTo(point_start, ind_y))?;
-            execute!(stdout(), Print("____________________"))?;
-
-            for line in (gd.lock().unwrap()).grid.iter().enumerate() {
-                execute!(
-                    stdout(),
-                    cursor::MoveTo(point_start - 1, (line.0 + 1) as u16 + ind_y)
-                )?;
-                execute!(stdout(), Print('|'))?;
-                for item in line.1 {
-                    execute!(stdout(), SetForegroundColor(Color::Yellow))?;
-                    if *item == 1 {
-                        execute!(stdout(), Print("O"))?;
-                    } else if *item == 2 {
-                        execute!(stdout(), SetForegroundColor(Color::Grey))?;
-                        execute!(stdout(), Print("O"))?;
-                    } else {
-                        execute!(stdout(), Print(" "))?;
-                    }
-                }
-                execute!(stdout(), SetForegroundColor(Color::Yellow))?;
-                execute!(
-                    stdout(),
-                    cursor::MoveTo(point_start + 20, (line.0 + 1) as u16 + ind_y)
-                )?;
-                execute!(stdout(), Print('|'))?;
-            }
-
-            execute!(stdout(), cursor::MoveTo(point_start - 1, 21 + ind_y))?;
-            execute!(stdout(), Print("——————————————————————"))?;
-            execute!(stdout(), cursor::MoveTo(point_start - 1, 21 + ind_y + 1))?;
-            execute!(stdout(), Print("                      "))?;
-            match (gd.lock().unwrap()).current_cord {
-                Some([x, _]) => {
-                    execute!(
-                        stdout(),
-                        cursor::MoveTo(point_start + x as u16, 21 + ind_y + 1)
-                    )?;
-                    execute!(stdout(), Print("^"))?;
-                }
-                _ => (),
-            }
-            if size_terminal.0 >= 70 {
-                execute!(
-                    stdout(),
-                    cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1),
-                    SetForegroundColor(Color::White),
-                    Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
-                )
-                .unwrap();
-            }
-        }
-        let mut lock_gd = gd.lock().unwrap();
-        if lock_gd.current_cord.is_none() || (info.lock().unwrap()).is_none() {
-            lock_gd.add_figure(get_random_figure(gener_rand.gen::<u8>() % 7));
-            lock_gd.ready_clean(&mut coin);
-        } else {
-            lock_gd.move_to_side(&mut where_go);
-        }
-        terminal::enable_raw_mode().unwrap();
-        if poll(Duration::from_millis(1)).unwrap() {
-            event_handler_poll(&mut where_go, &mut lock_gd, &mut coin, &mut exi)
-        }
-
-        if exi || size_terminal.0 < 23 {
-            execute!(stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
-            terminal::disable_raw_mode().unwrap();
-            break;
-        }
-    }
     Ok(())
 }

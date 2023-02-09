@@ -21,7 +21,20 @@ pub const GRID: [[u8; 20]; 20] = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-use crate::{get_figure_matrix, sleep, thread, Arc, Duration, Figures, MatrixPoint4X, Mutex};
+use std::io::stdout;
+
+use crossterm::{
+    cursor,
+    event::poll,
+    execute,
+    style::{Color, Print, SetForegroundColor},
+    terminal,
+};
+
+use crate::{
+    get_figure_matrix, get_random_figure, handler::event_handler_poll, sleep, thread, Arc,
+    Duration, Figures, MatrixPoint4X, Mutex,
+};
 
 #[derive(PartialEq)]
 pub enum Side {
@@ -172,6 +185,170 @@ impl Grid {
             *(info.lock().unwrap()) = (gd.lock().unwrap()).move_down(1, 1);
         })
     }
+
+    pub fn render(&self, state: &mut State, rand: u8) -> crossterm::Result<()> { 
+        unimplemented!();
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Green),
+            cursor::MoveTo(state.size_terminal.0 / 2, 2)
+        )?;
+        state.set_start(state.size_terminal.0);
+
+        if state.coin == 0 {
+            execute!(stdout(), Print("0           "))?;
+        } else {
+            execute!(stdout(), Print(state.coin))?;
+        }
+        state.point_start = state.size_terminal.0 / 2 - 10;
+
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Yellow),
+            cursor::MoveTo(state.point_start, state.ind_y),
+            Print("____________________")
+        )?;
+
+        for line in self.grid.iter().enumerate() {
+            execute!(
+                stdout(),
+                cursor::MoveTo(state.point_start - 1, (line.0 + 1) as u16 + state.ind_y),
+                Print('|')
+            )?;
+            for item in line.1 {
+                execute!(stdout(), SetForegroundColor(Color::Yellow))?;
+                if *item == 1 {
+                    execute!(stdout(), Print("O"))?;
+                } else if *item == 2 {
+                    execute!(stdout(), SetForegroundColor(Color::Grey))?;
+                    execute!(stdout(), Print("O"))?;
+                } else {
+                    execute!(stdout(), Print(" "))?;
+                }
+            }
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Yellow),
+                cursor::MoveTo(state.point_start + 20, (line.0 + 1) as u16 + state.ind_y),
+                Print('|')
+            )?;
+        }
+
+        execute!(
+            stdout(),
+            cursor::MoveTo(state.point_start - 1, 21 + state.ind_y),
+            Print("——————————————————————"),
+            cursor::MoveTo(state.point_start - 1, 21 + state.ind_y + 1),
+            Print("                      ")
+        )?;
+        match self.current_cord {
+            Some([x, _]) => {
+                execute!(
+                    stdout(),
+                    cursor::MoveTo(state.point_start + x as u16, 21 + state.ind_y + 1),
+                    Print("^")
+                )?;
+            }
+            _ => (),
+        }
+
+        
+        terminal::enable_raw_mode().unwrap();
+        
+        Ok(())
+    }
+
+    pub fn run_offline(
+        gd: &Arc<Mutex<Grid>>,
+        state: &mut State,
+        rand: u8,
+    ) -> crossterm::Result<()> {
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Green),
+            cursor::MoveTo(state.size_terminal.0 / 2, 2)
+        )?;
+        state.set_start(state.size_terminal.0);
+
+        if state.coin == 0 {
+            execute!(stdout(), Print("0           "))?;
+        } else {
+            execute!(stdout(), Print(state.coin))?;
+        }
+        state.point_start = state.size_terminal.0 / 2 - 10;
+
+        execute!(
+            stdout(),
+            SetForegroundColor(Color::Yellow),
+            cursor::MoveTo(state.point_start, state.ind_y),
+            Print("____________________")
+        )?;
+
+        for line in (gd.lock().unwrap()).grid.iter().enumerate() {
+            execute!(
+                stdout(),
+                cursor::MoveTo(state.point_start - 1, (line.0 + 1) as u16 + state.ind_y),
+                Print('|')
+            )?;
+            for item in line.1 {
+                execute!(stdout(), SetForegroundColor(Color::Yellow))?;
+                if *item == 1 {
+                    execute!(stdout(), Print("O"))?;
+                } else if *item == 2 {
+                    execute!(stdout(), SetForegroundColor(Color::Grey))?;
+                    execute!(stdout(), Print("O"))?;
+                } else {
+                    execute!(stdout(), Print(" "))?;
+                }
+            }
+            execute!(
+                stdout(),
+                SetForegroundColor(Color::Yellow),
+                cursor::MoveTo(state.point_start + 20, (line.0 + 1) as u16 + state.ind_y),
+                Print('|')
+            )?;
+        }
+
+        execute!(
+            stdout(),
+            cursor::MoveTo(state.point_start - 1, 21 + state.ind_y),
+            Print("——————————————————————"),
+            cursor::MoveTo(state.point_start - 1, 21 + state.ind_y + 1),
+            Print("                      ")
+        )?;
+        match (gd.lock().unwrap()).current_cord {
+            Some([x, _]) => {
+                execute!(
+                    stdout(),
+                    cursor::MoveTo(state.point_start + x as u16, 21 + state.ind_y + 1),
+                    Print("^")
+                )?;
+            }
+            _ => (),
+        }
+
+        let mut lock_gd = gd.lock().unwrap();
+        if lock_gd.current_cord.is_none() || (state.info.lock().unwrap()).is_none() {
+            lock_gd.add_figure(get_random_figure(rand % 7));
+            lock_gd.ready_clean(&mut state.coin);
+        } else {
+            lock_gd.move_to_side(&mut state.where_go);
+        }
+        terminal::enable_raw_mode().unwrap();
+        if poll(Duration::from_millis(1)).unwrap() {
+            event_handler_poll(
+                &mut state.where_go,
+                &mut lock_gd,
+                &mut state.coin,
+                &mut state.exi,
+            );
+        }
+        Ok(())
+    }
+
+    pub fn run_online(gd: &Arc<Mutex<Grid>>, state: &mut State, rand: u8, other_gd: &mut GridFriend) {
+
+    }
 }
 
 fn draw_points(grid: &mut [[u8; 20]; 20], points: &[[u8; 4]; 4], cord: [u8; 2], value: u8) {
@@ -205,3 +382,61 @@ fn is_side(grid: [[u8; 20]; 20], figure: &MatrixPoint4X, c: [u8; 2], side: i8) -
     }
     true
 }
+
+pub struct State {
+    pub size_terminal: (u16, u16),
+    point_start: u16,
+    ind_y: u16,
+    coin: usize,
+    where_go: Side,
+    exi: bool,
+    info: Arc<Mutex<Option<()>>>,
+    mixer: i16,
+}
+impl State {
+    pub(crate) fn new(size_terminal: (u16, u16), info: Arc<Mutex<Option<()>>>, mixer: i16) -> State {
+        State {
+            size_terminal,
+            point_start: size_terminal.0 / 2 - 10,
+            ind_y: 4,
+            coin: 0,
+            where_go: Side::Stop,
+            exi: false,
+            info,
+            mixer,
+        }
+    }
+
+    pub(crate) fn is_exi(&self) -> bool {
+        self.exi
+    }
+
+    pub fn set_start(&mut self, size: u16) {
+        self.point_start = size / 2 - 10;
+    }
+
+    
+
+    pub fn set_mixer(&mut self, mixer: i16) {
+        self.mixer = mixer;
+    }
+}
+
+
+
+
+pub struct GridFriend{
+    grid: [[u8; 20]; 20],
+    coin: usize,
+}
+
+impl GridFriend {
+    pub fn new() -> GridFriend {
+        GridFriend {
+            grid: GRID,
+            coin: 0
+        }
+    }    
+}
+
+
