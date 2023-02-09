@@ -21,23 +21,29 @@ pub use std::{thread, thread::sleep};
 pub use types_figures::{get_figure_matrix, get_random_figure, Figures};
 
 fn main() -> crossterm::Result<()> {
+    let mut size_terminal = terminal::size().unwrap();
+    init(size_terminal)?;
+
+
     let mut gener_rand = thread_rng();
     let gd = Arc::new(Mutex::new(Grid::new()));
-    let mut size_terminal = terminal::size().unwrap();
     let info = Arc::new(Mutex::new(None));
     let _thread_move_down = Grid::move_down_sleep(gd.clone(), info.clone());
     let mut state = State::new(size_terminal, info, 0);
-    let mut other_gd = Grid::new();
+    let mut other_gd = Arc::new(Mutex::new(Grid::new()));
     let mut other_state = State::new((100, 4), Arc::new(Mutex::new(None)), 0);
 
-    init(size_terminal)?;
+
 
     let game = loop {
-        break Game::Offline;
+        break Game::Online;
     };
     
     if let Game::Online = game {
-        state.set_mixer(-20)
+        state.set_mixer(-20);
+        other_state.set_mixer(20);
+    } else {
+        // state.set_mixer(0) - default
     }
 
     loop {
@@ -48,7 +54,12 @@ fn main() -> crossterm::Result<()> {
                 state.size_terminal = size_terminal;
                 Grid::run_offline(&gd, &mut state, gener_rand.gen::<u8>())?;
             }
-            Game::Online => {}
+            Game::Online => {
+                state.size_terminal = size_terminal;
+                other_state.size_terminal = size_terminal;
+
+                Grid::run_online(&gd, &mut state, gener_rand.gen::<u8>(), &other_gd, &mut other_state)?;
+            }
         }
 
         if size_terminal.0 >= 70 {
