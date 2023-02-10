@@ -36,6 +36,12 @@ use crate::{
     Duration, Figures, MatrixPoint4X, Mutex,
 };
 
+mod size;
+pub use size::SizeTerminal;
+
+mod state;
+pub use state::{State};
+
 #[derive(PartialEq)]
 pub enum Side {
     Left,
@@ -329,60 +335,9 @@ fn is_side(grid: [[u8; 20]; 20], figure: &MatrixPoint4X, c: [u8; 2], side: i8) -
     true
 }
 
-pub struct State {
-    pub size_terminal: (u16, u16),
-    point_start: u16,
-    ind_y: u16,
-    coin: usize,
-    where_go: Side,
-    exi: bool,
-    info: Arc<Mutex<Option<()>>>,
-    mixer: i16,
-}
-impl State {
-    pub(crate) fn new(size_terminal: (u16, u16), info: Arc<Mutex<Option<()>>>, mixer: i16) -> State {
-        State {
-            size_terminal,
-            point_start: size_terminal.0 / 2 - 10,
-            ind_y: 4,
-            coin: 0,
-            where_go: Side::Stop,
-            exi: false,
-            info,
-            mixer,
-        }
-    }
-
-    pub(crate) fn is_exi(&self) -> bool {
-        self.exi
-    }
-
-    pub fn set_start(&mut self, size: u16) {
-        self.point_start = size / 2 - 10;
-    }
-
-    
-
-    pub fn set_mixer(&mut self, mixer: i16) {
-        self.mixer = mixer;
-    }
-}
 
 
 
 
-pub struct GridFriend{
-    grid: [[u8; 20]; 20],
-    coin: usize,
-}
 
-impl GridFriend {
-    pub fn new() -> GridFriend {
-        GridFriend {
-            grid: GRID,
-            coin: 0
-        }
-    }    
-}
-
-
+ 

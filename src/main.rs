@@ -10,8 +10,8 @@ pub use crossterm::{
     style::{Color, Print, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
-use grid::State;
-pub use grid::{Grid, Side, GRID};
+
+pub use grid::{Grid, Side, GRID, State, SizeTerminal};
 pub use matrix::MatrixPoint4X;
 use rand::{thread_rng, Rng};
 pub use std::io::stdout;
@@ -29,9 +29,9 @@ fn main() -> crossterm::Result<()> {
     let gd = Arc::new(Mutex::new(Grid::new()));
     let info = Arc::new(Mutex::new(None));
     let _thread_move_down = Grid::move_down_sleep(gd.clone(), info.clone());
-    let mut state = State::new(size_terminal, info, 0);
-    let mut other_gd = Arc::new(Mutex::new(Grid::new()));
-    let mut other_state = State::new((100, 4), Arc::new(Mutex::new(None)), 0);
+    let mut state = State::new(SizeTerminal::new(), info, 0);
+    #[allow(unused_mut)] let mut other_gd = Arc::new(Mutex::new(Grid::new()));
+    let mut other_state = State::new(SizeTerminal::new(), Arc::new(Mutex::new(None)), 0);
 
 
 
@@ -45,36 +45,37 @@ fn main() -> crossterm::Result<()> {
     } else {
         // state.set_mixer(0) - default
     }
+    
 
     loop {
-        size_terminal = terminal::size().unwrap();
-
         match game {
             Game::Offline => {
-                state.size_terminal = size_terminal;
+                let res = state.size_terminal.update();
                 Grid::run_offline(&gd, &mut state, gener_rand.gen::<u8>())?;
             }
             Game::Online => {
-                state.size_terminal = size_terminal;
-                other_state.size_terminal = size_terminal;
+                let res1 = state.size_terminal.update();            
+                let res2 = other_state.size_terminal.update();
 
                 Grid::run_online(&gd, &mut state, gener_rand.gen::<u8>(), &other_gd, &mut other_state)?;
             }
         }
 
+
+        size_terminal = terminal::size().unwrap();
+
         if size_terminal.0 >= 70 {
             execute!(
                 stdout(),
-                cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1),
+                cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1-1),
                 SetForegroundColor(Color::White),
                 Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
-            )
-            .unwrap();
+            )?;
         }
 
         if state.is_exi() || size_terminal.0 < 23 {
             execute!(stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
-            terminal::disable_raw_mode().unwrap();
+            terminal::disable_raw_mode()?;
             break;
         }
     }
@@ -91,21 +92,11 @@ fn init(size_terminal: (u16, u16)) -> crossterm::Result<()> {
         stdout(),
         terminal::EnterAlternateScreen,
         cursor::Hide,
-        Clear(ClearType::All)
-    )?;
-
-    execute!(
-        stdout(),
-        cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1)
-    )
-    .unwrap();
-
-    execute!(stdout(), SetForegroundColor(Color::White)).unwrap();
-    execute!(
-        stdout(),
+        Clear(ClearType::All),
+        cursor::MoveTo(size_terminal.0 / 2 - 35, size_terminal.1-1),
+        SetForegroundColor(Color::White),
         Print("←→↑↓/adws/jlik for movement! p - pause! Esc - restart! CTRL-C to quit!")
-    )
-    .unwrap();
-    terminal::enable_raw_mode().unwrap();
+    )?;
+    terminal::enable_raw_mode()?;
     Ok(())
 }
