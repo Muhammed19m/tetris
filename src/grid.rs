@@ -33,7 +33,7 @@ use crossterm::{
 
 use crate::{
     get_figure_matrix, get_random_figure, handler::event_handler_poll, sleep, thread, Arc,
-    Duration, Figures, MatrixPoint4X, Mutex,
+    Duration, Figures, MatrixPoint4X, Mutex, client
 };
 
 mod size;
@@ -196,15 +196,12 @@ impl Grid {
         execute!(
             stdout(),
             SetForegroundColor(Color::Green),
-            cursor::MoveTo(((state.size_terminal.0 / 2) as i16 +state.mixer) as u16, 2)
+            cursor::MoveTo(((state.size_terminal.0 / 2) as i16 +state.mixer) as u16, 2),
+            Print(state.coin)
         )?;
         state.set_start((state.size_terminal.0 as i16 + state.mixer) as u16);
-
-        if state.coin == 0 {
-            execute!(stdout(), Print("0           "))?;
-        } else {
-            execute!(stdout(), Print(state.coin))?;
-        }
+        
+      
         state.point_start = ((state.size_terminal.0 / 2 - 10) as i16 + state.mixer) as u16;
 
         execute!(
@@ -298,6 +295,7 @@ impl Grid {
         gd_other_lock.render(state_other)?;
         
         Grid::move_main(gd_self_lock, state_self, rand_self);
+        
 
         Ok(())
     }
