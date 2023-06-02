@@ -5,6 +5,8 @@ use std::{
 };
 use websocket::{ClientBuilder, OwnedMessage, WebSocketError};
 
+use crate::Grid;
+
 mod test;
 
 pub struct Client {
@@ -15,8 +17,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(addr: &str) -> Result<(Self, Sender<String>, Receiver<String>), WebSocketError> {
-        let (user_sender, mut recv_in_serv) = channel();
+    pub fn new(addr: &str) -> Result<(Self, Sender<Vec<u8>>, Receiver<Vec<u8>>), WebSocketError> {
+        let (user_sender, recv_in_serv) = channel();
         let (cli_sender, user_recv) = channel();
 
         let client = ClientBuilder::new(addr)
@@ -29,7 +31,6 @@ impl Client {
         let sender_ws = thread::spawn(move || -> Result<(), WebSocketError> {
             while let Ok(message) = recv_in_serv.recv() {
                 sender.send_message(&OwnedMessage::Text(format!("{:?}", message)))?; // нужно отправлять (корды фигуры, MatricPoint4x)
-
                 sleep(Duration::from_millis(200));
             }
             Ok(())
@@ -39,12 +40,12 @@ impl Client {
             for message in receiver.incoming_messages() {
                 let message = message?;
                 match message {
-                    OwnedMessage::Text(s) => {
-                        if let Err(_) = cli_sender.send(s) {
+                    OwnedMessage::Text(_) => todo!(),
+                    OwnedMessage::Binary(g) => {
+                        if let Err(_) = cli_sender.send(g) {
                             todo!()
                         }
                     }
-                    OwnedMessage::Binary(_) => todo!(),
                     OwnedMessage::Close(_) => todo!(),
                     OwnedMessage::Ping(_) => todo!(),
                     OwnedMessage::Pong(_) => todo!(),
@@ -66,8 +67,11 @@ impl Client {
     }
 }
 
-struct Message {}
+struct Message {
+    grid: Grid,
+}
 
+#[allow(unused)]
 fn x2u16_from_string(mut s: String) -> (u16, u16) {
     let sl = &mut s[1..s.len() - 1].split(',');
     let first = sl.next().unwrap().parse().unwrap();

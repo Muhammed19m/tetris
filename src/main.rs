@@ -16,11 +16,14 @@ pub use client::*;
 pub use grid::{Grid, Side, SizeTerminal, State, GRID};
 pub use matrix::MatrixPoint4X;
 use rand::{thread_rng, Rng};
+use std::env;
 pub use std::io::stdout;
 pub use std::sync::{Arc, Mutex};
 pub use std::time::Duration;
 pub use std::{thread, thread::sleep};
 pub use types_figures::{get_figure_matrix, get_random_figure, Figures};
+
+const HOST: &str = "ws://127.0.0.1:8080";
 
 fn main() -> crossterm::Result<()> {
     let mut size_terminal = terminal::size().unwrap();
@@ -35,13 +38,40 @@ fn main() -> crossterm::Result<()> {
     let mut other_gd = Arc::new(Mutex::new(Grid::new()));
     let mut other_state = State::new(SizeTerminal::new(), Arc::new(Mutex::new(None)), 0);
 
-    let game = loop {
-        break Game::Offline;
+    let mut game = loop {
+        break match env::args().skip(1).next() {
+            Some(s) if s.to_lowercase().eq("online") => Game::Online,
+            _ => Game::Offline,
+        };
     };
 
+    let (mut cli, mut sender, mut receiver) = (None, None, None);
+
     if let Game::Online = game {
-        state.set_mixer(-20);
-        other_state.set_mixer(20);
+        if let Some(name) = env::args().skip(2).next() {
+            let c = Client::new(&format!("{HOST}/{name}"));
+            if let Ok(vars) = c {
+                (cli, sender, receiver) = (Some(vars.0), Some(vars.1), Some(vars.2));
+                let other_gd = other_gd.clone();
+                thread::spawn(move || {
+                    other_gd
+                        .lock()
+                        .unwrap()
+                        .insert_grid(receiver.as_ref().map(|r| r.recv().unwrap()).unwrap());
+                    thread::sleep(Duration::from_millis(100))
+                });
+
+                state.set_mixer(-20);
+                other_state.set_mixer(20);
+            } else if let Err(err) = c {
+                execute!(stdout(), cursor::MoveTo(0, 0))?;
+                println!("{err:?}");
+                thread::sleep(Duration::from_secs(10));
+                game = Game::Offline;
+            }
+        } else {
+            game = Game::Offline;
+        }
     } else {
         // state.set_mixer(0) - default
     }
@@ -55,6 +85,9 @@ fn main() -> crossterm::Result<()> {
             Game::Online => {
                 let _res1 = state.size_terminal.update();
                 let _res2 = other_state.size_terminal.update();
+                sender
+                    .as_ref()
+                    .map(|s| s.send(gd.lock().unwrap().grid.into_iter().flatten().collect()));
 
                 Grid::run_online(
                     &gd,

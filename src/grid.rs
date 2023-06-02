@@ -1,4 +1,6 @@
-pub const GRID: [[u8; 20]; 20] = [
+pub type GridArr = [[u8; 20]; 20];
+
+pub const GRID: GridArr = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -32,15 +34,15 @@ use crossterm::{
 };
 
 use crate::{
-    get_figure_matrix, get_random_figure, handler::event_handler_poll, sleep, thread, Arc,
-    Duration, Figures, MatrixPoint4X, Mutex, client
+    client, get_figure_matrix, get_random_figure, handler::event_handler_poll, sleep, thread, Arc,
+    Duration, Figures, MatrixPoint4X, Mutex,
 };
 
 mod size;
 pub use size::SizeTerminal;
 
 mod state;
-pub use state::{State};
+pub use state::State;
 
 #[derive(PartialEq)]
 pub enum Side {
@@ -51,7 +53,7 @@ pub enum Side {
 }
 
 pub struct Grid {
-    pub grid: [[u8; 20]; 20],
+    pub grid: GridArr,
     pub current_cord: Option<[u8; 2]>,
     pub figure: Option<MatrixPoint4X>,
 }
@@ -192,16 +194,15 @@ impl Grid {
         })
     }
 
-    pub fn render(&self, state: &mut State) -> crossterm::Result<()> { 
+    pub fn render(&self, state: &mut State) -> crossterm::Result<()> {
         execute!(
             stdout(),
             SetForegroundColor(Color::Green),
-            cursor::MoveTo(((state.size_terminal.0 / 2) as i16 +state.mixer) as u16, 2),
+            cursor::MoveTo(((state.size_terminal.0 / 2) as i16 + state.mixer) as u16, 2),
             Print(state.coin)
         )?;
         state.set_start((state.size_terminal.0 as i16 + state.mixer) as u16);
-        
-      
+
         state.point_start = ((state.size_terminal.0 / 2 - 10) as i16 + state.mixer) as u16;
 
         execute!(
@@ -253,7 +254,7 @@ impl Grid {
             }
             _ => (),
         }
- 
+
         terminal::enable_raw_mode()
     }
 
@@ -280,24 +281,34 @@ impl Grid {
         state: &mut State,
         rand: u8,
     ) -> crossterm::Result<()> {
-       
         let lock_gd = gd.lock().unwrap();
         lock_gd.render(state)?;
         Grid::move_main(lock_gd, state, rand);
         Ok(())
     }
 
-    pub fn run_online(gd_self: &Arc<Mutex<Grid>>, state_self: &mut State, rand_self: u8, gd_other: &Arc<Mutex<Grid>>, state_other: &mut State) -> crossterm::Result<()>{
+    pub fn run_online(
+        gd_self: &Arc<Mutex<Grid>>,
+        state_self: &mut State,
+        rand_self: u8,
+        gd_other: &Arc<Mutex<Grid>>,
+        state_other: &mut State,
+    ) -> crossterm::Result<()> {
         let gd_self_lock = gd_self.lock().unwrap();
         let gd_other_lock = gd_other.lock().unwrap();
 
         gd_self_lock.render(state_self)?;
         gd_other_lock.render(state_other)?;
-        
+
         Grid::move_main(gd_self_lock, state_self, rand_self);
-        
 
         Ok(())
+    }
+
+    pub fn insert_grid(&mut self, vec: Vec<u8>) {
+        for item in vec.into_iter().enumerate() {
+            self.grid[item.0 / 20][item.0 % 20] = item.1;
+        }
     }
 }
 
@@ -332,10 +343,3 @@ fn is_side(grid: [[u8; 20]; 20], figure: &MatrixPoint4X, c: [u8; 2], side: i8) -
     }
     true
 }
-
-
-
-
-
-
- 
