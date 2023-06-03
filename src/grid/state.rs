@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 use crate::Side;
 
@@ -13,10 +13,16 @@ pub struct State {
     pub exi: bool,
     pub info: Arc<Mutex<Option<()>>>,
     pub mixer: i16,
-    // pub resize: Option<(u16, u16)>,
+    pub field_for_second_player: Arc<AtomicBool>, // self player every time true
+                                                  // pub resize: Option<(u16, u16)>,
 }
 impl State {
-    pub(crate) fn new(size_terminal: SizeTerminal, info: Arc<Mutex<Option<()>>>, mixer: i16) -> State {
+    pub(crate) fn new(
+        size_terminal: SizeTerminal,
+        info: Arc<Mutex<Option<()>>>,
+        mixer: i16,
+        field_for_second_player: bool, /* self player every time true */
+    ) -> State {
         State {
             size_terminal,
             point_start: size_terminal.0 / 2 - 10,
@@ -26,6 +32,7 @@ impl State {
             exi: false,
             info,
             mixer,
+            field_for_second_player: Arc::new(AtomicBool::new(field_for_second_player)),
         }
     }
 
@@ -36,8 +43,6 @@ impl State {
     pub fn set_start(&mut self, size: u16) {
         self.point_start = size / 2 - 10;
     }
-
-    
 
     pub fn set_mixer(&mut self, mixer: i16) {
         self.mixer = mixer;

@@ -67,6 +67,7 @@ impl Client {
     }
 }
 
+#[allow(unused)]
 struct Message {
     grid: Grid,
 }

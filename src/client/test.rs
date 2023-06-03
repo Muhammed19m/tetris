@@ -5,7 +5,7 @@ mod client_test {
 
     const ADDR: u16 = 8080;
 
-    #[allow(unused_must_use)]
+    #[allow(unused)]
     #[test]
     fn test_cli() {
         dbg!("test started");

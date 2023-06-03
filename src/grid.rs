@@ -23,7 +23,10 @@ pub const GRID: GridArr = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-use std::{io::stdout, sync::MutexGuard};
+use std::{
+    io::stdout,
+    sync::{atomic::Ordering, MutexGuard},
+};
 
 use crossterm::{
     cursor,
@@ -219,7 +222,11 @@ impl Grid {
                 Print('|')
             )?;
             for item in line.1 {
-                execute!(stdout(), SetForegroundColor(Color::Yellow))?;
+                if state.field_for_second_player.load(Ordering::Relaxed) {
+                    execute!(stdout(), SetForegroundColor(Color::Yellow))?;
+                } else {
+                    execute!(stdout(), SetForegroundColor(Color::Red))?;
+                }
                 if *item == 1 {
                     execute!(stdout(), Print("O"))?;
                 } else if *item == 2 {
@@ -296,7 +303,6 @@ impl Grid {
     ) -> crossterm::Result<()> {
         let gd_self_lock = gd_self.lock().unwrap();
         let gd_other_lock = gd_other.lock().unwrap();
-
         gd_self_lock.render(state_self)?;
         gd_other_lock.render(state_other)?;
 
@@ -309,6 +315,33 @@ impl Grid {
         for item in vec.into_iter().enumerate() {
             self.grid[item.0 / 20][item.0 % 20] = item.1;
         }
+    }
+
+    pub fn draw_sign_absence(&mut self) {
+        self.grid[6][4] = 1;
+        self.grid[5][4] = 1;
+        self.grid[4][5] = 1;
+        self.grid[3][6] = 1;
+        self.grid[3][7] = 1;
+        self.grid[2][8] = 1;
+        self.grid[2][9] = 1;
+        self.grid[2][10] = 1;
+        self.grid[2][11] = 1;
+        self.grid[3][12] = 1;
+        self.grid[3][13] = 1;
+        self.grid[4][14] = 1;
+        self.grid[5][15] = 1;
+        self.grid[6][15] = 1;
+        self.grid[7][14] = 1;
+        self.grid[8][13] = 1;
+        self.grid[9][12] = 1;
+        self.grid[10][11] = 1;
+        self.grid[11][10] = 1;
+        self.grid[12][10] = 1;
+        self.grid[13][10] = 1;
+        self.grid[14][10] = 1;
+        self.grid[15][10] = 1;
+        self.grid[17][10] = 1;
     }
 }
 
