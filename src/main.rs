@@ -45,6 +45,7 @@ fn main() -> crossterm::Result<()> {
         };
     };
 
+    #[allow(unused_variables)]
     let (mut cli, mut sender, mut receiver) = (None, None, None);
 
     if let Game::Online = game {
@@ -56,17 +57,18 @@ fn main() -> crossterm::Result<()> {
 
                 let does_the_player_exist = other_state.field_for_second_player.clone();
 
-                thread::spawn(move || {
-                    other_gd.lock().unwrap().draw_sign_absence();
+                thread::spawn(move || loop {
+                    // other_gd.lock().unwrap().draw_sign_absence();
 
                     receiver.as_ref().map(|r| match r.recv() {
                         Ok(v) => {
+                            _ = execute!(stdout(), cursor::MoveTo(0, 0));
                             does_the_player_exist.store(true, Ordering::Relaxed);
                             other_gd.lock().unwrap().insert_grid(v);
                         }
-                        Err(_) => {
+                        Err(_e) => {
                             does_the_player_exist.store(false, Ordering::Relaxed);
-                            other_gd.lock().unwrap().draw_sign_absence();
+                            // other_gd.lock().unwrap().draw_sign_absence();
                         }
                     });
                     thread::sleep(Duration::from_millis(100))
@@ -89,7 +91,6 @@ fn main() -> crossterm::Result<()> {
     } else {
         // state.set_mixer(0) - default
     }
-    let mut counter_t = 0;
     loop {
         match game {
             Game::Offline => {
@@ -102,9 +103,6 @@ fn main() -> crossterm::Result<()> {
                 sender
                     .as_ref()
                     .map(|s| s.send(gd.lock().unwrap().grid.into_iter().flatten().collect()));
-                // execute!(stdout(), cursor::MoveTo(0, 0))?;
-                // print!("t {counter_t}");
-                counter_t += 1;
                 Grid::run_online(
                     &gd,
                     &mut state,

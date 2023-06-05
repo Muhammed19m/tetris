@@ -37,7 +37,7 @@ use crossterm::{
 };
 
 use crate::{
-    client, get_figure_matrix, get_random_figure, handler::event_handler_poll, sleep, thread, Arc,
+    get_figure_matrix, get_random_figure, handler::event_handler_poll, sleep, thread, Arc,
     Duration, Figures, MatrixPoint4X, Mutex,
 };
 
@@ -210,7 +210,11 @@ impl Grid {
 
         execute!(
             stdout(),
-            SetForegroundColor(Color::Yellow),
+            if state.field_for_second_player.load(Ordering::Relaxed) {
+                SetForegroundColor(Color::Yellow)
+            } else {
+                SetForegroundColor(Color::Red)
+            },
             cursor::MoveTo(state.point_start, state.ind_y),
             Print("____________________")
         )?;
@@ -219,16 +223,16 @@ impl Grid {
             execute!(
                 stdout(),
                 cursor::MoveTo(state.point_start - 1, (line.0 + 1) as u16 + state.ind_y),
+                if state.field_for_second_player.load(Ordering::Relaxed) {
+                    SetForegroundColor(Color::Yellow)
+                } else {
+                    SetForegroundColor(Color::Red)
+                },
                 Print('|')
             )?;
             for item in line.1 {
-                if state.field_for_second_player.load(Ordering::Relaxed) {
-                    execute!(stdout(), SetForegroundColor(Color::Yellow))?;
-                } else {
-                    execute!(stdout(), SetForegroundColor(Color::Red))?;
-                }
                 if *item == 1 {
-                    execute!(stdout(), Print("O"))?;
+                    execute!(stdout(), SetForegroundColor(Color::Yellow), Print("O"))?;
                 } else if *item == 2 {
                     execute!(stdout(), SetForegroundColor(Color::Grey))?;
                     execute!(stdout(), Print("O"))?;
@@ -238,7 +242,11 @@ impl Grid {
             }
             execute!(
                 stdout(),
-                SetForegroundColor(Color::Yellow),
+                if state.field_for_second_player.load(Ordering::Relaxed) {
+                    SetForegroundColor(Color::Yellow)
+                } else {
+                    SetForegroundColor(Color::Red)
+                },
                 cursor::MoveTo(state.point_start + 20, (line.0 + 1) as u16 + state.ind_y),
                 Print('|')
             )?;
@@ -247,6 +255,11 @@ impl Grid {
         execute!(
             stdout(),
             cursor::MoveTo(state.point_start - 1, 21 + state.ind_y),
+            if state.field_for_second_player.load(Ordering::Relaxed) {
+                SetForegroundColor(Color::Yellow)
+            } else {
+                SetForegroundColor(Color::Red)
+            },
             Print("——————————————————————"),
             cursor::MoveTo(state.point_start - 1, 21 + state.ind_y + 1),
             Print("                      ")

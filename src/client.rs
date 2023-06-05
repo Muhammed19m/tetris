@@ -30,7 +30,7 @@ impl Client {
 
         let sender_ws = thread::spawn(move || -> Result<(), WebSocketError> {
             while let Ok(message) = recv_in_serv.recv() {
-                sender.send_message(&OwnedMessage::Text(format!("{:?}", message)))?; // нужно отправлять (корды фигуры, MatricPoint4x)
+                sender.send_message(&OwnedMessage::Binary(message))?; // нужно отправлять (корды фигуры, MatricPoint4x)
                 sleep(Duration::from_millis(200));
             }
             Ok(())
@@ -38,12 +38,12 @@ impl Client {
 
         let receiver_ws = thread::spawn(move || -> Result<(), WebSocketError> {
             for message in receiver.incoming_messages() {
-                let message = message?;
-                match message {
+                match message? {
                     OwnedMessage::Text(_) => todo!(),
                     OwnedMessage::Binary(g) => {
-                        if let Err(_) = cli_sender.send(g) {
-                            todo!()
+                        if let Err(_e) = cli_sender.send(g) {
+                            // print!("{:?}", e.0);
+                            // todo!()
                         }
                     }
                     OwnedMessage::Close(_) => todo!(),
