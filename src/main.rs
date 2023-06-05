@@ -50,7 +50,13 @@ fn main() -> crossterm::Result<()> {
 
     if let Game::Online = game {
         if let Some(name) = env::args().skip(2).next() {
-            let c = Client::new(&format!("{HOST}/{name}"));
+            let host = env::args()
+                .skip(3)
+                .next()
+                .or(Some(HOST.to_string()))
+                .unwrap();
+            execute!(stdout(), cursor::MoveTo(0, 0))?;
+            let c = Client::new(&format!("{host}/{name}"));
             if let Ok(vars) = c {
                 (cli, sender, receiver) = (Some(vars.0), Some(vars.1), Some(vars.2));
                 let other_gd = other_gd.clone();
@@ -71,7 +77,7 @@ fn main() -> crossterm::Result<()> {
                             // other_gd.lock().unwrap().draw_sign_absence();
                         }
                     });
-                    thread::sleep(Duration::from_millis(100))
+                    // thread::sleep(Duration::from_millis(100))
                 });
 
                 state.set_mixer(-20);

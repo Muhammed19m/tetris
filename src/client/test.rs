@@ -1,13 +1,6 @@
 #[cfg(test)]
 mod client_test {
 
-    use std::{
-        thread,
-        time::{self, Duration},
-    };
-
-    use console::Term;
-
     use crate::client;
 
     const ADDR: u16 = 8080;

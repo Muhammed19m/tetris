@@ -3,6 +3,7 @@ use std::{
     thread::{self, sleep, JoinHandle},
     time::Duration,
 };
+use websocket::url::ParseError;
 use websocket::{ClientBuilder, OwnedMessage, WebSocketError};
 
 use crate::Grid;
@@ -16,15 +17,23 @@ pub struct Client {
     ),
 }
 
+#[derive(Debug)]
+pub enum MyError {
+    WebSocketError(WebSocketError),
+    ParseError(ParseError),
+}
+
 impl Client {
-    pub fn new(addr: &str) -> Result<(Self, Sender<Vec<u8>>, Receiver<Vec<u8>>), WebSocketError> {
+    pub fn new(addr: &str) -> Result<(Self, Sender<Vec<u8>>, Receiver<Vec<u8>>), MyError> {
         let (user_sender, recv_in_serv) = channel();
         let (cli_sender, user_recv) = channel();
 
         let client = ClientBuilder::new(addr)
-            .unwrap()
+            .map_err(|e| MyError::ParseError(e))?
             .add_protocol("rust-websocket")
-            .connect_insecure()?;
+            // .add_protocols(protocols)
+            .connect_insecure()
+            .map_err(|e| MyError::WebSocketError(e))?;
 
         let (mut receiver, mut sender) = client.split().unwrap();
 
